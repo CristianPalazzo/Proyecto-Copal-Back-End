@@ -1,0 +1,23 @@
+version: '3.8'
+services:
+    mariadb-container:
+      image: mariadb:11.1.2
+      environment:
+        MARIADB_ROOT_PASSWORD: test1234
+        MARIADB_DATABASE: acc_squad_m1s3_db_dev
+      ports:
+        - 127.0.0.1:3306:3306
+      restart: unless-stopped
+    springboot-container:
+      build: .
+      ports:
+        - 127.0.0.1:8080:80
+      environment:
+        - DB_URL=jdbc:mariadb://mariadb-container:3306/acc_squad_m1s3_db_dev
+        - DB_USERNAME=root
+        - DB_PASSWORD=test1234
+        - SPRINGBOOT_HIBERNATE_DDL_AUTO=create-drop
+        - SPRINGBOOT_SHOW_SQL=true
+        - SPRINGBOOT_SQL_INIT=always
+        - SPRINGBOOT_PORT=80
+      restart: on-failure

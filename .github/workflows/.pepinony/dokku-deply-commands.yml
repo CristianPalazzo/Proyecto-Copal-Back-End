@@ -1,0 +1,87 @@
+name: Dokku-Commands
+on:
+  workflow_dispatch:
+  workflow_call:
+    
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+  HOST: ${{ secrets.SSH_HOST }}
+  USER: ${{ secrets.SSH_USER }}
+  PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+  TOKEN_GHCR: ${{ secrets.TOKEN_GHCR }}
+
+  
+jobs:
+  preparation:
+    runs-on: ubuntu-latest
+    outputs: 
+      fecha: ${{ steps.date.outputs.date }}
+    steps:
+    - name: Get current date
+      id: date
+      run: echo "::set-output name=date::$(date +'%d-%m-%Y')" 
+
+    - name: Cloning repo
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Login to ghcr.io
+      uses: appleboy/ssh-action@v1.0.0
+      with:
+        host: ${{ env.HOST }}
+        username: ${{ env.USER }}
+        key: ${{ env.PRIVATE_KEY }}
+        script:  registry:login ghcr.io pepinony ${{ env.TOKEN_GHCR }}
+
+
+  deploy_main:
+    if: ${{github.ref == 'refs/heads/main'}}
+    needs: preparation
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Deploy on prod
+      env:
+        FECHA: ${{ needs.preparation.outputs.fecha }}
+    
+      uses: appleboy/ssh-action@v1.0.0
+      with:
+        host: ${{ env.HOST }}
+        username: ${{ env.USER }}
+        key: ${{ env.PRIVATE_KEY  }}
+        script: git:from-image acc-squad-m1s1-back-prod ghcr.io/disilab-frba-utn-edu-ar/t2-s1-socios-back:${{ needs.preparation.outputs.fecha }}-main 
+
+
+    - name: Rebuild on prod
+      uses: appleboy/ssh-action@v1.0.0
+      with:
+        host: ${{ env.HOST }}
+        username: ${{ env.USER }}
+        key: ${{ env.PRIVATE_KEY  }}
+        script: ps:rebuild acc-squad-m1s1-back-prod
+
+  deploy_dev:
+    if: ${{github.ref == 'refs/heads/dev'}}
+    needs: preparation
+    runs-on: ubuntu-latest
+   
+    steps:
+    - name: Deploy on dev
+      env:
+        FECHA: ${{ needs.preparation.outputs.fecha }}
+      uses: appleboy/ssh-action@v1.0.0
+      with:
+        host: ${{ env.HOST }}
+        username: ${{ env.USER }}
+        key: ${{ env.PRIVATE_KEY  }}
+        script: git:from-image acc-squad-m1s1-back-dev ghcr.io/disilab-frba-utn-edu-ar/t2-s1-socios-back:${{ needs.preparation.outputs.fecha }}-dev 
+
+    - name: Rebuild on dev
+      uses: appleboy/ssh-action@v1.0.0
+      with:
+        host: ${{ env.HOST }}
+        username: ${{ env.USER }}
+        key: ${{ env.PRIVATE_KEY  }}
+        script: ps:rebuild acc-squad-m1s1-back-dev
